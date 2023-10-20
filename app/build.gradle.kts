@@ -50,6 +50,7 @@ dependencies {
     implementation("com.google.android.gms:play-services-location:21.0.1")
     implementation("com.google.android.gms:play-services-maps:18.1.0")
     implementation("com.karumi:dexter:6.2.3")
+    implementation("org.pytorch:pytorch_android_lite:2.1.0")
 
 }
 

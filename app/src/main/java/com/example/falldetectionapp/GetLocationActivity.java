@@ -20,8 +20,13 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationManager;
+import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Looper;
@@ -65,9 +70,14 @@ import com.karumi.dexter.listener.PermissionRequest;
 import com.karumi.dexter.listener.single.PermissionListener;
 import com.google.android.gms.location.LocationRequest;
 
-public class GetLocationActivity extends AppCompatActivity implements OnMapReadyCallback {
+public class GetLocationActivity extends AppCompatActivity implements OnMapReadyCallback, SensorEventListener {
 
     boolean isLocationPermissionGranted = false;
+    double threshold = 0;
+    private SensorManager sensorManager;
+    private Sensor accelerometerSensor;
+    private MediaPlayer mediaPlayer;
+    private boolean isSoundPlaying = false;
     MapView mapView;
     GoogleMap googleMap;
     LocationRequest locationRequest;
@@ -82,7 +92,10 @@ public class GetLocationActivity extends AppCompatActivity implements OnMapReady
         setContentView(R.layout.activity_get_location);
         cardViewEmergencyContact = findViewById(R.id.cardViewContactEmergency);
         cardViewSettings = findViewById(R.id.cardViewSettings);
-
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        accelerometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+// Prepare the sound
+        mediaPlayer = MediaPlayer.create(this, R.raw.warning_sound); // Replace with your sound file
         cardViewEmergencyContact.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -282,17 +295,17 @@ public class GetLocationActivity extends AppCompatActivity implements OnMapReady
         mapView.onStart();
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        mapView.onResume();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        mapView.onPause();
-    }
+//    @Override
+//    protected void onResume() {
+//        super.onResume();
+//        mapView.onResume();
+//    }
+//
+//    @Override
+//    protected void onPause() {
+//        super.onPause();
+//        mapView.onPause();
+//    }
 
     @Override
     protected void onStop() {
@@ -346,5 +359,53 @@ public class GetLocationActivity extends AppCompatActivity implements OnMapReady
         }
         return super.onOptionsItemSelected(item);
     }
+
+    public void onSensorChanged(SensorEvent event) {
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            threshold = Math.sqrt(Math.pow(event.values[0], 2) + Math.pow(event.values[1], 2) + Math.pow(event.values[2], 2));
+            float xValue = event.values[0];
+            Log.d(TAG, "X: " + xValue);
+            if (threshold > 9 * 3 && !isSoundPlaying) {
+                playSoundAndShowAlert();
+            }
+        }
+    }
+
+    private void playSoundAndShowAlert() {
+        isSoundPlaying = true;
+        mediaPlayer.setLooping(true);
+        mediaPlayer.start();
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setMessage("Fall Detected!!!. Press to stop sound.")
+                .setPositiveButton("Stop", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        mediaPlayer.stop();
+                        mediaPlayer.release(); // Release resources
+                        mediaPlayer = MediaPlayer.create(GetLocationActivity.this, R.raw.warning_sound); // Re-prepare for next use
+                        mediaPlayer.setLooping(false); // Reset looping to false for future uses
+                        isSoundPlaying = false;
+                    }
+                });
+        builder.create().show();
+    }
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        // Not used in this example
+    }
+    @Override
+    protected void onResume()
+    {
+        super.onResume();
+        sensorManager.registerListener(this, accelerometerSensor, SensorManager.SENSOR_DELAY_NORMAL);
+    }
+    @Override
+    protected void onPause()
+    {
+        super.onPause();
+        sensorManager.unregisterListener(this);
+    }
+
 }
 

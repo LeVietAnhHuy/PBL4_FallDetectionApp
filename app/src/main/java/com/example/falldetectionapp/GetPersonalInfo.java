@@ -4,10 +4,21 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.app.ActivityManager;
+import android.app.AlertDialog;
 import android.app.ProgressDialog;
+import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.media.MediaPlayer;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -23,6 +34,7 @@ import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.snackbar.Snackbar;
+import com.google.android.material.tabs.TabLayout;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.OnProgressListener;
 import com.google.firebase.storage.StorageReference;
@@ -32,7 +44,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
-public class GetPersonalInfo extends AppCompatActivity {
+public class GetPersonalInfo extends AppCompatActivity implements SensorEventListener {
+    private static final String TAG = "GetPersonalInfo";
     EditText editName, editAge, editWeight, editHeight, editPhoneNum, editMedicalCondition;
     TextView tv;
     Button btnChangePersonalAvatar, btnDone;
@@ -40,11 +53,31 @@ public class GetPersonalInfo extends AppCompatActivity {
     FirebaseStorage storage;
     StorageReference storageReference;
     Uri imageUri;
-
+    private SensorManager sensorManager;
+    private Sensor accelerometerSensor;
+    private MediaPlayer mediaPlayer;
+    private boolean isSoundPlaying = false;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_getting_emergency_contact_info);
+        // Get sensor manager and accelerometer sensor
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        accelerometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+// Prepare the sound
+        mediaPlayer = MediaPlayer.create(this, R.raw.warning_sound); // Replace with your sound file
+
+//        if(!foregroundServiceRunning()){
+//            Intent serviceIntent = new Intent(this, FallDetectionService.class);
+//            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+//                startForegroundService(serviceIntent);
+//            }
+//        }
+
+//        Intent serviceIntent = new Intent(this, FallDetectionService.class);
+//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+//            startForegroundService(serviceIntent);
+//        }
 
         Database db = new Database(getApplicationContext(), "userInfo", null, 1);
 
@@ -122,6 +155,16 @@ public class GetPersonalInfo extends AppCompatActivity {
         });
     }
 
+    public boolean foregroundServiceRunning(){
+        ActivityManager activityManager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        for(ActivityManager.RunningServiceInfo service: activityManager.getRunningServices(Integer.MAX_VALUE)){
+            if(FallDetectionService.class.getName().equals(service.service.getClassName())){
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void ChoosePicture() {
         Intent intent = new Intent();  // get Image from device
         intent.setType("image/");
@@ -179,5 +222,52 @@ public class GetPersonalInfo extends AppCompatActivity {
                     pd.setMessage("Progress: " + (int) progressPercent + "%");
                 }
             });
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            float xValue = event.values[0];
+            Log.d(TAG, "X: " + xValue);
+            if (xValue > 10 && !isSoundPlaying) {
+                playSoundAndShowAlert();
+            }
+        }
+    }
+
+    private void playSoundAndShowAlert() {
+        isSoundPlaying = true;
+        mediaPlayer.start();
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setMessage("X value exceeded 10. Press to stop sound.")
+                .setPositiveButton("Stop", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which)
+                    {
+                        mediaPlayer.stop();
+                        mediaPlayer.release(); // Release resources
+                        mediaPlayer = MediaPlayer.create(GetPersonalInfo.this, R.raw.warning_sound); // Re-prepare for next use
+                        isSoundPlaying = false;
+                    }
+                });
+        builder.create().show();
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        // Not used in this example
+    }
+    @Override
+    protected void onResume()
+    {
+        super.onResume();
+        sensorManager.registerListener(this, accelerometerSensor, SensorManager.SENSOR_DELAY_NORMAL);
+    }
+    @Override
+    protected void onPause()
+    {
+        super.onPause();
+        sensorManager.unregisterListener(this);
     }
 }

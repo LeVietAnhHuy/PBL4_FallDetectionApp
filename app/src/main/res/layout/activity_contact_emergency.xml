@@ -133,7 +133,11 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+<<<<<<< HEAD
                         android:text="My Profile"
+=======
+                        android:text="Notification \n Settings"
+>>>>>>> 0339546 (Initial commit)
                         android:textAlignment="center"
                         android:textStyle="bold"></TextView>
                 </LinearLayout>
@@ -168,7 +172,11 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+<<<<<<< HEAD
                         android:text="My Profile"
+=======
+                        android:text="Language"
+>>>>>>> 0339546 (Initial commit)
                         android:textAlignment="center"
                         android:textStyle="bold"></TextView>
                 </LinearLayout>
@@ -204,7 +212,11 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+<<<<<<< HEAD
                         android:text="My Profile"
+=======
+                        android:text="Help"
+>>>>>>> 0339546 (Initial commit)
                         android:textAlignment="center"
                         android:textStyle="bold"></TextView>
                 </LinearLayout>
@@ -239,7 +251,11 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+<<<<<<< HEAD
                         android:text="My Profile"
+=======
+                        android:text="Pirvacy \nPolicy"
+>>>>>>> 0339546 (Initial commit)
                         android:textAlignment="center"
                         android:textStyle="bold"></TextView>
                 </LinearLayout>
