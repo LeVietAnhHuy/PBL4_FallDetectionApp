@@ -38,15 +38,13 @@ series_id = 1
 for i in range(len(activities)):
     for sub in tqdm(range(1, SUBJECT_ID + 2)):
         # read '.csv' file
-        file_name = os.path.join(path_annotated_data, activities[i], activities[i] + '_' + str(sub) + '_'
-                                + str(TRIAL_NO[i]) + '_annotated.csv')
-        if not os.path.isfile(file_name): # if filefolder exists, open 3 type of sensor data files
-          continue
-        sample_df = pd.read_csv(file_name)
+        sample_df = pd.read_csv(os.path.join(path_annotated_data, activities[i], activities[i] + '_' + str(sub) + '_'
+                                + str(TRIAL_NO[i]) + '_annotated.csv'))
         # len of csv file
         sample_len = len(sample_df)
+        print(sample_len)
         # reduce len of csv file by a half
-        drop_rows = [x for x in range(0, sample_len - 1, 2)]
+        drop_rows = [x for x in range(0, sample_len + 1, 2)]
         sample_df = sample_df.drop(labels=drop_rows, axis=0)
         sample_df = sample_df.reset_index()
         # new len of csv file
@@ -71,3 +69,20 @@ for i in range(len(activities)):
             sample_df.insert(0, 'Series_ID', Series_ID_col, True)
             sample_df.insert(1, 'numSamples', Series_ID_col, True)
             sample_df.to_csv(os.path.join(path_resample_data, 'data_100hz.csv'), mode='a', index=False, header=False)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
