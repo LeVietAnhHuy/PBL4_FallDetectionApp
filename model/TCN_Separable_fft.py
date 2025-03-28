@@ -1,7 +1,6 @@
 import torch
 from torch import nn
 from torch.nn.utils import weight_norm
-import torch.nn.functional as F
 
 class Chomp1d(nn.Module):
     def __init__(self, chomp_size):
@@ -123,14 +122,14 @@ class TemporalBlock(nn.Module):
     def __init__(self, ni, nf, ks, stride, dilation, padding, dropout=0.):
         super(TemporalBlock, self).__init__()
         # self.conv1 = weight_norm(nn.Conv1d(ni,nf,ks,stride=stride,padding=padding,dilation=dilation))
-        self.depthwise1 = weight_norm(nn.Conv1d(ni, ni, ks, stride=stride, dilation=dilation, padding=padding, groups=ni))
+        self.depthwise1 = weight_norm(nn.Conv1d(ni, ni, ks, stride=stride, dilation=dilation, padding=padding))
         self.pointwise1 = weight_norm(nn.Conv1d(ni, nf, kernel_size=1))
         self.chomp1 = Chomp1d(padding)
         self.relu1 = nn.ReLU()
-        self.Bn1 = nn.BatchNorm1d(nf)
         self.dropout1 = nn.Dropout(dropout)
+        self.Bn1 = nn.BatchNorm1d(nf)
         # self.conv2 = weight_norm(nn.Conv1d(nf,nf,ks,stride=stride,padding=padding,dilation=dilation))
-        self.depthwise2 = weight_norm(nn.Conv1d(nf, nf, ks, stride=stride, dilation=dilation, padding=padding, groups=nf))
+        self.depthwise2 = weight_norm(nn.Conv1d(nf, nf, ks, stride=stride, dilation=dilation, padding=padding))
         self.pointwise2 = weight_norm(nn.Conv1d(nf, nf, kernel_size=1))
         self.chomp2 = Chomp1d(padding)
         self.relu2 = nn.ReLU()
@@ -168,12 +167,12 @@ def TemporalConvNet(c_in, layers, ks=2, dropout=0.):
     return nn.Sequential(*temp_layers)
 
 class TCN1(nn.Module):
-    def __init__(self, c_in, c_out, layers=8*[27], ks=7, conv_dropout=0., fc_dropout=0.):
+    def __init__(self, c_in, c_out, layers=8*[25], ks=7, conv_dropout=0., fc_dropout=0.):
         super(TCN1, self).__init__()
         self.tcn = TemporalConvNet(c_in, layers, ks=ks, dropout=conv_dropout)
         self.gap = GAP1d()
         self.dropout = nn.Dropout(fc_dropout) if fc_dropout else None
-        self.linear = nn.Linear(layers[-1], c_out)
+        self.linear = nn.Linear(layers[-1],c_out)
         self.init_weights()
 
     def init_weights(self):
@@ -184,52 +183,5 @@ class TCN1(nn.Module):
         x = self.gap(x)
         if self.dropout is not None: x = self.dropout(x)
         return self.linear(x)
-
-class Attention(nn.Module):
-    def __init__(self, units):
-        super(Attention, self).__init__()
-        self.W = nn.Linear(units, units)
-        self.V = nn.Linear(units, 1)
-
-    def forward(self, inputs):
-        # Compute attention scores
-        score = torch.relu(self.W(inputs))
-        # print('score: ', score.shape)
-        attention_weights = F.softmax(self.V(score), dim=1)
-
-        # Apply attention weights to input
-        context_vector = attention_weights * inputs
-        # print(context_vector.shape)
-        # context_vector = torch.sum(context_vector, dim=0)
-
-        return context_vector
-class Model(nn.Module):
-    def __init__(self):
-        super(Model, self).__init__()
-        self.TCN1_standard = TCN1(9, 16)
-        self.TCN1_fft = TCN1(6, 16)
-        self.Attention = Attention(32)
-        self.linear = nn.Linear(32, 16)
-
-
-    def forward(self, x_raw):
-        b1 = self.TCN1_standard(x_raw)
-        x_fft = x_raw[:, :6, :]
-        b2 = self.TCN1_fft(x_fft)
-        b_in = torch.cat([b1, b2], dim=1)
-        b_in = self.Attention(b_in)
-        # print(b_in.shape)
-        b_out = self.linear(b_in)
-        # print(b_out.shape)
-        return b_out
-    # def forward(self, x_raw, x_fft):
-    #     b1 = self.TCN1_standard(x_raw)
-    #     b2 = self.TCN1_fft(x_fft)
-    #     b_in = torch.cat([b1, b2], dim=1)
-    #     b_in = self.Attention(b_in)
-    #     # print(b_in.shape)
-    #     b_out = self.linear(b_in)
-    #     # print(b_out.shape)
-    #     return b_out
 
 

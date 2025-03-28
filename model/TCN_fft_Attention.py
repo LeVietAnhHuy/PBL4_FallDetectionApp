@@ -61,62 +61,6 @@ class SepConv1d(nn.Module):
         x = self.pointwise(self.depthwise(x))
         return x
 
-# class TemporalBlock(nn.Module):
-#     def __init__(self, ni, nf, ks, stride, dilation, padding, dropout=0.):
-#         super(TemporalBlock, self).__init__()
-#         self.conv1 = SepConv1d(ni, nf, ks, stride, dilation, padding)
-#         self.chomp1 = Chomp1d(padding)
-#         self.relu1 = nn.ReLU()
-#         self.dropout1 = nn.Dropout(dropout)
-#         self.conv2 = SepConv1d(nf, nf, ks, stride, dilation, padding)
-#         self.chomp2 = Chomp1d(padding)
-#         self.relu2 = nn.ReLU()
-#         self.dropout2 = nn.Dropout(dropout)
-#         self.net = nn.Sequential(self.conv1, self.chomp1, self.relu1, self.dropout1,
-#                                  self.conv2, self.chomp2, self.relu2, self.dropout2)
-#         self.relu = nn.ReLU()
-#         # self.init_weights()
-#
-#     # sao lai prezee cai ni
-#     def init_weights(self):
-#         self.conv1.weight.data.normal_(0, 0.01)
-#         self.conv2.weight.data.normal_(0, 0.01)
-#         if self.downsample is not None: self.downsample.weight.data.normal_(0, 0.01)
-#
-#     def forward(self, x):
-#         out = self.net(x)
-#         # res = x if self.downsample is None else self.downsample(x)
-#         res = 0
-#         return self.relu(out + res)
-#
-# def TemporalConvNet(c_in, layers, ks=2, dropout=0.):
-#     temp_layers = []
-#     for i in range(len(layers)):
-#         dilation_size = 2 ** i
-#         ni = c_in if i == 0 else layers[i-1]
-#         nf = layers[i]
-#         temp_layers += [TemporalBlock(ni, nf, ks, stride=1, dilation=dilation_size, padding=(ks-1) * dilation_size, dropout=dropout)]
-#     return nn.Sequential(*temp_layers)
-#
-# class TCN_Separable(nn.Module):
-#     def __init__(self, c_in, c_out, layers=8*[25], ks=7, conv_dropout=0., fc_dropout=0.):
-#         super(TCN_Separable, self).__init__()
-#         self.tcn = TemporalConvNet(c_in, layers, ks=ks, dropout=conv_dropout)
-#         self.gap = GAP1d()
-#         self.dropout = nn.Dropout(fc_dropout) if fc_dropout else None
-#         self.linear = nn.Linear(layers[-1],c_out)
-#     #     self.init_weights()
-#     #
-#     def init_weights(self):
-#         self.linear.weight.data.normal_(0, 0.01)
-#
-#     def forward(self, x):
-#         x = self.tcn(x)
-#         x = self.gap(x)
-#         if self.dropout is not None: x = self.dropout(x)
-#         return self.linear(x)
-
-
 ########################################################################################################################
 
 class TemporalBlock(nn.Module):
@@ -165,25 +109,8 @@ def TemporalConvNet(c_in, layers, ks=2, dropout=0.):
         ni = c_in if i == 0 else layers[i-1]
         nf = layers[i]
         temp_layers += [TemporalBlock(ni, nf, ks, stride=1, dilation=dilation_size, padding=(ks-1) * dilation_size, dropout=dropout)]
+        temp_layers
     return nn.Sequential(*temp_layers)
-
-class TCN1(nn.Module):
-    def __init__(self, c_in, c_out, layers=8*[27], ks=7, conv_dropout=0., fc_dropout=0.):
-        super(TCN1, self).__init__()
-        self.tcn = TemporalConvNet(c_in, layers, ks=ks, dropout=conv_dropout)
-        self.gap = GAP1d()
-        self.dropout = nn.Dropout(fc_dropout) if fc_dropout else None
-        self.linear = nn.Linear(layers[-1], c_out)
-        self.init_weights()
-
-    def init_weights(self):
-        self.linear.weight.data.normal_(0, 0.01)
-
-    def forward(self, x):
-        x = self.tcn(x)
-        x = self.gap(x)
-        if self.dropout is not None: x = self.dropout(x)
-        return self.linear(x)
 
 class Attention(nn.Module):
     def __init__(self, units):
@@ -203,6 +130,24 @@ class Attention(nn.Module):
         # context_vector = torch.sum(context_vector, dim=0)
 
         return context_vector
+class TCN1(nn.Module):
+    def __init__(self, c_in, c_out, layers=8*[27], ks=7, conv_dropout=0., fc_dropout=0.):
+        super(TCN1, self).__init__()
+        self.tcn = TemporalConvNet(c_in, layers, ks=ks, dropout=conv_dropout)
+        self.gap = GAP1d()
+        self.dropout = nn.Dropout(fc_dropout) if fc_dropout else None
+        self.linear = nn.Linear(layers[-1], c_out)
+        self.init_weights()
+
+    def init_weights(self):
+        self.linear.weight.data.normal_(0, 0.01)
+
+    def forward(self, x):
+        x = self.tcn(x)
+        x = self.gap(x)
+        if self.dropout is not None: x = self.dropout(x)
+        return self.linear(x)
+
 class Model(nn.Module):
     def __init__(self):
         super(Model, self).__init__()
@@ -212,9 +157,8 @@ class Model(nn.Module):
         self.linear = nn.Linear(32, 16)
 
 
-    def forward(self, x_raw):
+    def forward(self, x_raw, x_fft):
         b1 = self.TCN1_standard(x_raw)
-        x_fft = x_raw[:, :6, :]
         b2 = self.TCN1_fft(x_fft)
         b_in = torch.cat([b1, b2], dim=1)
         b_in = self.Attention(b_in)
@@ -222,14 +166,5 @@ class Model(nn.Module):
         b_out = self.linear(b_in)
         # print(b_out.shape)
         return b_out
-    # def forward(self, x_raw, x_fft):
-    #     b1 = self.TCN1_standard(x_raw)
-    #     b2 = self.TCN1_fft(x_fft)
-    #     b_in = torch.cat([b1, b2], dim=1)
-    #     b_in = self.Attention(b_in)
-    #     # print(b_in.shape)
-    #     b_out = self.linear(b_in)
-    #     # print(b_out.shape)
-    #     return b_out
 
 
